@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_sc
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
-# Modele klasyfikacyjne
+# Classification models
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -15,7 +15,7 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 
-# Ewaluacja
+# Ewaluation
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_curve, auc
 
 #Importing the data from CSV (80% training, 20% testing)
@@ -51,12 +51,21 @@ scaler = StandardScaler()
 X_scaled_train = scaler.fit_transform(X_train)
 X_scaled_test = scaler.transform(X_test)
 
-#1st test with baseline Logistic Regression
-model = LogisticRegression(max_iter=1000)
-model.fit(X_scaled_train, y_train)
+#Applying K-Nearest Neighbors (KNN) Classifier
+pipe_knn = Pipeline(steps=[
+    ("scaler", StandardScaler()),
+    ("model", KNeighborsClassifier(
+        n_neighbors = 3,
+        weights='distance',
+        metric='manhattan'
+    ))
+])
 
-y_pred = model.predict(X_scaled_test)
+pipe_knn.fit(X_train, y_train)
+cv_score = np.round(cross_val_score(pipe_knn, X_train, y_train), 2)
 
-print("Accuracy:", accuracy_score(y_test, y_pred))
-print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
-print("Classification Report:\n", classification_report(y_test, y_pred))
+#Displaying results
+print("Scores of training data cross-validation (each fold):")
+list(map(print, cv_score))
+print(f"\nCross-validation mean score: {np.mean(cv_score):.3}")
+print(f"Standard deviation of CV score: {np.std(cv_score):.3f}")
