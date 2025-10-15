@@ -135,3 +135,40 @@ print(f"\nCross-validation mean score: {np.mean(cv_score):.3}")
 print(f"Standard deviation of CV score: {np.std(cv_score):.3f}\n\n")
 
 evaluate_model(clf_tree, X_train, y_train)
+
+#Support Vector Machine (SVM)
+param_grid_svm = {
+    "model__C": [0.1, 1, 3, 10],
+    "model__gamma": ["scale", "auto", 0.01, 0.1, 1],
+    "model__kernel": ["rbf", "poly", "sigmoid"]
+}
+
+#Applying SVM Classifier
+pipe_svc = Pipeline(steps=[
+    ("scaler", StandardScaler()),
+    ("model", SVC(probability=True))
+])
+
+#Initializing the Grid Search for the SVC model
+grid_search_svm = GridSearchCV(
+    estimator=pipe_svc,
+    param_grid=param_grid_svm,
+    cv=5,
+    scoring="f1",
+    n_jobs=-1
+)
+
+#Training
+grid_search_svm.fit(X_train, y_train)
+
+best_svm = grid_search_svm.best_estimator_
+
+cv_score = np.round(cross_val_score(best_svm, X_train, y_train), 2)
+
+print("\n\nGeneral test --- Support Vector Machine \n")
+print("Scores of training data cross-validation (each fold):")
+list(map(print, cv_score))
+print(f"\nCross-validation mean score: {cv_score.mean():.3f}")
+print(f"Standard deviation of CV score: {cv_score.std():.3f}")
+
+evaluate_model(best_svm, X_train, y_train)
