@@ -160,12 +160,63 @@ grid_search_svm = GridSearchCV(
 
 #Training
 grid_search_svm.fit(X_train, y_train)
-
 best_svm = grid_search_svm.best_estimator_
 
 cv_score = np.round(cross_val_score(best_svm, X_train, y_train), 2)
 
+#Displaying results
 print("\n\nGeneral test --- Support Vector Machine \n")
+print("Scores of training data cross-validation (each fold):")
+list(map(print, cv_score))
+print(f"\nCross-validation mean score: {cv_score.mean():.3f}")
+print(f"Standard deviation of CV score: {cv_score.std():.3f}")
+
+evaluate_model(best_svm, X_train, y_train)
+
+#Logistic Regression
+#Setting up GridSearchCV
+param_grid_lr = [
+    {
+        "model__penalty": ["l1"],
+        "model__C": [0.01, 0.1, 1, 3, 10],
+        "model__solver": ["liblinear", "saga"]
+    },
+    {
+        "model__penalty": ["l2"],
+        "model__C": [0.01, 0.1, 1, 3, 10],
+        "model__solver": ["liblinear", "saga", "lbfgs", "newton-cg"]
+    },
+    {
+        "model__penalty": ["elasticnet"],
+        "model__C": [0.01, 0.1, 1, 3, 10],
+        "model__solver": ["saga"],
+        "model__l1_ratio": [0.3, 0.5, 0.7]
+    }
+]
+
+#Applying Logistic Regression Scaler
+pipe_lr = Pipeline(steps=[
+    ("scaker", StandardScaler()),
+    ("model", LogisticRegression(max_iter=50000))
+])
+
+#Initializing the Grid Search for the KNN model
+grid_search_lr = GridSearchCV(
+    estimator=pipe_lr,
+    param_grid=param_grid_lr,
+    cv=5,
+    scoring="f1",
+    n_jobs=-1
+)
+
+# Training
+grid_search_lr.fit(X_train, y_train)
+best_lr = grid_search_lr.best_estimator_
+
+cv_score = np.round(cross_val_score(best_lr, X_train, y_train, cv=5, scoring="accuracy"), 2)
+
+#Displaying results
+print("\n\nGeneral test --- Logistic Regression \n")
 print("Scores of training data cross-validation (each fold):")
 list(map(print, cv_score))
 print(f"\nCross-validation mean score: {cv_score.mean():.3f}")
