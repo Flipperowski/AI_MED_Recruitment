@@ -49,3 +49,5 @@ This repository contains the evaluation results of different classification mode
 - scikit-learn
 - numpy, pandas
 - matplotlib, seaborn
+
+For detailed code and experiments, please refer to the [Jupyter Notebook](./main.ipynb).
