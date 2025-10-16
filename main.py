@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score, RepeatedStratifiedKFold
+from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score, RepeatedStratifiedKFold, cross_validate
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
@@ -16,11 +16,14 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 
 # Metrics
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_curve, auc, f1_score, roc_auc_score
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_curve, auc, f1_score, roc_auc_score, precision_recall_curve, average_precision_score
 
 
 #Evaluation function
-def evaluate_model(model, X, y, cv=5):
+#Evaluate one model
+def evaluate_single_model(model, X, y, cv=5):
+    print(f"\nEvaluating model: {model.__class__.__name__}")
+    
     # Accuracy
     acc = cross_val_score(model, X, y, cv=cv, scoring="accuracy")
     print("\nAccuracy scores:", np.round(acc, 2))
@@ -35,6 +38,75 @@ def evaluate_model(model, X, y, cv=5):
     auc = cross_val_score(model, X, y, cv=cv, scoring="roc_auc")
     print("\nROC AUC scores:", np.round(auc, 2))
     print(f"Mean ROC AUC: {np.mean(auc):.3f} | Std: {np.std(auc):.3f}")
+
+
+#Evaluate all models at once
+def evaluate_all_models(models, X, y, cv=5):
+    results = {}
+    for name, model in models.items():
+        print(f"\n\n--- Evaluating {name} ---")
+        evaluate_single_model(model, X, y, cv=cv)
+
+        scores = cross_validate(
+            model, X, y, cv=cv, scoring=["accuracy", "f1", "roc_auc"]
+        )
+        results[name] = {
+            "acc_mean": scores["test_accuracy"].mean(),
+            "f1_mean": scores["test_f1"].mean(),
+            "roc_mean": scores["test_roc_auc"].mean(),
+        }
+    return results
+
+#Visualization of Tests
+def visualize_model_performance(model, X_test, y_test, model_name="Model"):
+    
+    y_pred = model.predict(X_test)
+    
+    # ROC/PR
+    if hasattr(model, "predict_proba"):
+        y_score = model.predict_proba(X_test)[:, 1]
+    elif hasattr(model, "decision_function"):
+        y_score = model.decision_function(X_test)
+    else:
+        print(f"{model_name} nie obsługuje ROC/PR (brak predict_proba/decision_function).")
+        y_score = None
+
+    # Confusion Matrix
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(5,4))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Oranges", cbar=False)
+    plt.title(f"{model_name} - Confusion Matrix")
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+    plt.show()
+
+    if y_score is not None:
+        # ROC Curve
+        fpr, tpr, _ = roc_curve(y_test, y_score)
+        roc_auc = roc_auc_score(y_test, y_score)
+        plt.figure(figsize=(6,5))
+        plt.plot(fpr, tpr, color="darkorange", lw=2, label=f"AUC = {roc_auc:.3f}")
+        plt.plot([0, 1], [0, 1], "k--", lw=1)
+        plt.title(f"ROC Curve - {model_name}")
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.legend()
+        plt.grid(alpha=0.3)
+        plt.show()
+
+        # Precision-Recall Curve
+        precision, recall, _ = precision_recall_curve(y_test, y_score)
+        ap = average_precision_score(y_test, y_score)
+        plt.figure(figsize=(6,5))
+        plt.plot(recall, precision, color="blue", lw=2, label=f"AP = {ap:.3f}")
+        plt.title(f"Precision-Recall Curve - {model_name}")
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.legend()
+        plt.grid(alpha=0.3)
+        plt.show()
+
+
 
 #Importing the data from CSV (80% training, 20% testing)
 data = pd.read_csv("task_data.csv")
@@ -91,7 +163,7 @@ pipe_knn = Pipeline(steps=[
 ])
 
 #Initializing the Grid Search for the KNN model
-grid_search = GridSearchCV(
+grid_search_knn = GridSearchCV(
     estimator=pipe_knn,
     param_grid=param_grid,
     scoring="accuracy",
@@ -101,15 +173,9 @@ grid_search = GridSearchCV(
 )
 
 #Training
-grid_search.fit(X_train, y_train)
-best_knn = grid_search.best_estimator_
+grid_search_knn.fit(X_train, y_train)
+best_knn = grid_search_knn.best_estimator_
 
-#Displaying results
-print("General test --- KNN Model \n")
-print(f"Best parameters: {grid_search.best_params_}")
-print(f"Best accuracy (averaged CV): {grid_search.best_score_:.4f}\n\n")
-
-evaluate_model(best_knn, X_train, y_train)
 
 #Decision Tree
 clf_tree = DecisionTreeClassifier(
@@ -126,15 +192,6 @@ clf_tree.fit(X_train, y_train)
 
 cv_score = np.round(cross_val_score(clf_tree, X_train, y_train),2 )
 
-#Displaying results
-print("\n\nGeneral test --- Decision Tree \n")
-
-print(f"Scores of training data cross-validation (each fold):")
-list(map(print, cv_score))
-print(f"\nCross-validation mean score: {np.mean(cv_score):.3}")
-print(f"Standard deviation of CV score: {np.std(cv_score):.3f}\n\n")
-
-evaluate_model(clf_tree, X_train, y_train)
 
 #Support Vector Machine (SVM)
 param_grid_svm = {
@@ -164,14 +221,6 @@ best_svm = grid_search_svm.best_estimator_
 
 cv_score = np.round(cross_val_score(best_svm, X_train, y_train), 2)
 
-#Displaying results
-print("\n\nGeneral test --- Support Vector Machine \n")
-print("Scores of training data cross-validation (each fold):")
-list(map(print, cv_score))
-print(f"\nCross-validation mean score: {cv_score.mean():.3f}")
-print(f"Standard deviation of CV score: {cv_score.std():.3f}")
-
-evaluate_model(best_svm, X_train, y_train)
 
 #Logistic Regression
 #Setting up GridSearchCV
@@ -196,11 +245,11 @@ param_grid_lr = [
 
 #Applying Logistic Regression Scaler
 pipe_lr = Pipeline(steps=[
-    ("scaker", StandardScaler()),
+    ("scaler", StandardScaler()),
     ("model", LogisticRegression(max_iter=50000))
 ])
 
-#Initializing the Grid Search for the KNN model
+#Initializing the Grid Search for the LR
 grid_search_lr = GridSearchCV(
     estimator=pipe_lr,
     param_grid=param_grid_lr,
@@ -215,11 +264,80 @@ best_lr = grid_search_lr.best_estimator_
 
 cv_score = np.round(cross_val_score(best_lr, X_train, y_train, cv=5, scoring="accuracy"), 2)
 
-#Displaying results
-print("\n\nGeneral test --- Logistic Regression \n")
-print("Scores of training data cross-validation (each fold):")
-list(map(print, cv_score))
-print(f"\nCross-validation mean score: {cv_score.mean():.3f}")
-print(f"Standard deviation of CV score: {cv_score.std():.3f}")
+#Random Forest Classifier
+clf_rf = RandomForestClassifier(
+    max_depth=6,
+    min_samples_split=6,
+    n_estimators=125,
+    min_samples_leaf=2,
+    max_features='sqrt'
+)
 
-evaluate_model(best_svm, X_train, y_train)
+#Training
+clf_rf.fit(X_train, y_train)
+
+cv_score = np.round(cross_val_score(clf_rf, X_train, y_train), 2)
+
+
+#Displaying results
+models = {
+    "KNN": best_knn,
+    "Decision Tree": clf_tree,
+    "SVM": best_svm,
+    "Logistic Regression": best_lr,
+    "Random Forest": clf_rf
+}
+
+#Test Set Evaluation
+results = evaluate_all_models(models, X_train, y_train)
+
+results = {}
+
+models = {
+    "KNN": grid_search_knn.best_estimator_,
+    "Decision Tree": clf_tree,
+    "SVM": grid_search_svm.best_estimator_,
+    "Logistic Regression": grid_search_lr.best_estimator_,
+    "Random Forest": clf_rf
+}
+
+#Cross validation
+for name, model in models.items():
+    scores = cross_validate(
+        model, X_train, y_train,
+        cv=5,
+        scoring=["accuracy", "f1", "roc_auc"]
+    )
+    results[name] = {
+        "acc_mean": scores["test_accuracy"].mean(),
+        "f1_mean": scores["test_f1"].mean(),
+        "roc_mean": scores["test_roc_auc"].mean(),
+        "acc_std": scores["test_accuracy"].std(),
+        "f1_std": scores["test_f1"].std(),
+        "roc_std": scores["test_roc_auc"].std()
+    }
+
+models_names = list(results.keys())
+acc = [results[m]["acc_mean"] for m in models_names]
+f1  = [results[m]["f1_mean"] for m in models_names]
+roc = [results[m]["roc_mean"] for m in models_names]
+
+x = np.arange(len(models_names))
+width = 0.25
+
+fig, ax = plt.subplots(figsize=(10,6))
+ax.bar(x - width, acc, width, label="Accuracy (CV mean)")
+ax.bar(x, f1, width, label="F1 (CV mean)")
+ax.bar(x + width, roc, width, label="ROC AUC (CV mean)")
+
+ax.set_ylabel("Score")
+ax.set_title("Model Comparison - Accuracy, F1, ROC AUC")
+ax.set_xticks(x)
+ax.set_xticklabels(models_names)
+ax.legend()
+plt.ylim(0, 1.1)
+plt.show()
+
+for name, model in models.items():
+    print(f"\n\n=== {name} ===")
+    visualize_model_performance(model, X_test, y_test, model_name=name)
