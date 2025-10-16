@@ -51,3 +51,5 @@ This repository contains the evaluation results of different classification mode
 - matplotlib, seaborn
 
 For detailed code and experiments, please refer to the [Jupyter Notebook](./main.ipynb).
+
+Based on [Artificial-Intelligence-in-Medicine-AGH - AI_MED_Recruitment](https://github.com/Artificial-Intelligence-in-Medicine-AGH/AI_MED_Recruitment/tree/main).
