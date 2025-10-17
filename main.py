@@ -10,10 +10,9 @@ from sklearn.pipeline import Pipeline
 # Classification models
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
 
 # Metrics
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_curve, auc, f1_score, roc_auc_score, precision_recall_curve, average_precision_score
@@ -340,4 +339,5 @@ plt.show()
 
 for name, model in models.items():
     print(f"\n\n=== {name} ===")
+
     visualize_model_performance(model, X_test, y_test, model_name=name)
