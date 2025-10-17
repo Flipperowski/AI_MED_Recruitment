@@ -107,7 +107,7 @@ def visualize_model_performance(model, X_test, y_test, model_name="Model"):
 
 
 
-#Importing the data from CSV (80% training, 20% testing)
+#Importing the data from CSV
 data = pd.read_csv("task_data.csv")
 data.columns = data.columns.str.strip()
 
@@ -130,7 +130,7 @@ X = data[[
 #Selecting targeted column (Cardiomegaly)
 y = data["Cardiomegaly"]
 
-#Splitting the dataset
+#Splitting the dataset  (80% training, 20% testing)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 #Creating a StandardScaler object
@@ -341,3 +341,4 @@ for name, model in models.items():
     print(f"\n\n=== {name} ===")
 
     visualize_model_performance(model, X_test, y_test, model_name=name)
+
